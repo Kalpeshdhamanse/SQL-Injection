@@ -1,0 +1,51 @@
+from flask import Flask, request, render_template_string
+import sqlite3
+
+app = Flask(__name__)
+
+SAFE_MODE = False  # Set to True for secure mode
+
+def get_db_connection():
+    conn = sqlite3.connect('demo.db')
+    conn.row_factory = sqlite3.Row
+    return conn
+
+HTML = """
+<!doctype html>
+<title>SQL Injection Demo</title>
+<h2>Login Form</h2>
+<form method="post">
+  Username: <input name="username"><br>
+  Password: <input name="password" type="password"><br>
+  <input type="submit" value="Login">
+</form>
+<p>{{ message }}</p>
+"""
+
+@app.route('/', methods=['GET', 'POST'])
+def login():
+    message = ''
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        if SAFE_MODE:
+            sql = "SELECT * FROM users WHERE username = ? AND password = ?"
+            cur.execute(sql, (username, password))
+        else:
+            sql = f"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'"
+            cur.execute(sql)
+
+        result = cur.fetchone()
+        conn.close()
+
+        if result:
+            message = "✅ Logged in successfully!"
+        else:
+            message = "❌ Invalid credentials."
+    return render_template_string(HTML, message=message)
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
